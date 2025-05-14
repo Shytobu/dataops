@@ -1,1 +1,101 @@
+services:
+  postgres:
+    image: postgres:13
+    container_name: epsi_dataops-postgres-1
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow_db
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    networks:
+      - epsi_dataops_network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
 
+  airflow-init:
+    image: apache/airflow:2.5.0
+    container_name: epsi_dataops-airflow-init-1
+    # Add proper command to wait for postgres and initialize the database
+    command: >
+      bash -c "
+        airflow db init &&
+        airflow users create --username admin --firstname Airflow --lastname Admin --email admin@example.com --role Admin --password admin &&
+        airflow db upgrade
+      "
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow_db
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__RBAC=True
+      - AIRFLOW__CORE__FERNET_KEY=n7YM4+01XUsIu7zxL8Dawiff7KDjeAloypPje9d7xTg=
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
+      - AIRFLOW__CORE__LOGGING_LEVEL=INFO
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    networks:
+      - epsi_dataops_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  airflow-webserver:
+    image: apache/airflow:2.5.0
+    container_name: epsi_dataops-airflow-webserver-1
+    # Add command to start the webserver
+    command: webserver
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow_db
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__FERNET_KEY=n7YM4+01XUsIu7zxL8Dawiff7KDjeAloypPje9d7xTg=
+      - AIRFLOW__WEBSERVER__SECRET_KEY=ao/9Q9XwDe44GaDlzAcCchBwFEIMkHwLbkEm32cvqZw=
+      - AIRFLOW__WEBSERVER__RBAC=True
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    networks:
+      - epsi_dataops_network
+    depends_on:
+      - airflow-init
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  airflow-scheduler:
+    image: apache/airflow:2.5.0
+    container_name: epsi_dataops-airflow-scheduler-1
+    # Add command to start the scheduler
+    command: scheduler
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow_db
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__FERNET_KEY=n7YM4+01XUsIu7zxL8Dawiff7KDjeAloypPje9d7xTg=
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    networks:
+      - epsi_dataops_network
+    depends_on:
+      - airflow-init
+      - airflow-webserver
+    restart: always
+
+volumes:
+  postgres-db-volume:
+    driver: local
+
+networks:
+  epsi_dataops_network:
+    driver: bridge
