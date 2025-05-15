@@ -1,0 +1,10 @@
+name: 'sales_dbt'
+version: '1.0'
+config-version: 2
+
+profile: 'dataops'  # doit correspondre au nom dans profiles.yml
+
+model-paths: ["models"]
+target-path: "target"
+clean-targets:
+  - "target"

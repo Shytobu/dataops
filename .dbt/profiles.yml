@@ -1,0 +1,13 @@
+dataops:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: postgres  # doit correspondre au nom du service Docker
+      user: airflow
+      password: airflow
+      port: 5432
+      dbname: airflow_db
+      schema: public
+      threads: 1
+      client_encoding: utf8
