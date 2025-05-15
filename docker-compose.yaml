@@ -6,6 +6,9 @@ services:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow_db
+      LANG: en_US.UTF-8
+      LANGUAGE: en_US:en
+      LC_ALL: en_US.UTF-8
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
     networks:
@@ -37,6 +40,7 @@ services:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
+      - ./requirements.txt:/requirements.txt
     networks:
       - epsi_dataops_network
     depends_on:
@@ -61,6 +65,8 @@ services:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
+      - ./dbt:/opt/airflow/dbt
+      - ./dbt_profiles:/root/.dbt
     networks:
       - epsi_dataops_network
     depends_on:
@@ -91,6 +97,15 @@ services:
       - airflow-init
       - airflow-webserver
     restart: always
+  dbt-cli:
+    image: ghcr.io/dbt-labs/dbt-postgres:1.6.0
+    container_name: dbt-cli    
+    depends_on:
+      - postgres
+    volumes:
+        - ./dbt:/usr/app
+        - ./dbt_profiles:/root/.dbt
+    working_dir: /usr/app
 
 volumes:
   postgres-db-volume:
@@ -99,3 +114,5 @@ volumes:
 networks:
   epsi_dataops_network:
     driver: bridge
+
+  
